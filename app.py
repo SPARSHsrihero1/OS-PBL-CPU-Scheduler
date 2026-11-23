@@ -76,10 +76,39 @@ with tab1:
         c4.metric("CPU Efficiency (η)", f"{eff}%")
 
         st.subheader("Execution Gantt Chart")
-        gantt_df = [dict(Task=g.label, Start=g.start, Finish=g.end, Type=g.event_type) for g in gantt]
-        fig = px.timeline(pd.DataFrame(gantt_df), x_start="Start", x_end="Finish", y="Task", color="Task",
-                          title=f"CPU Allocation Timeline (Context Switch Overhead δ = {cs_delta})")
-        fig.update_yaxes(autorange="reversed")
+        # Build numerical Gantt chart using barh to avoid Plotly date/timestamp formatting on X-axis
+        import plotly.graph_objects as go
+        fig = go.Figure()
+        colors_map = {
+            "P1": "#3B82F6", "P2": "#10B981", "P3": "#F59E0B", "P4": "#8B5CF6", "P5": "#EC4899",
+            "CS": "#EF4444", "IDLE": "#64748B"
+        }
+        seen_legend = set()
+        for g in gantt:
+            c = colors_map.get(g.label, "#06B6D4")
+            show_leg = g.label not in seen_legend
+            seen_legend.add(g.label)
+            fig.add_trace(go.Bar(
+                y=[g.label],
+                x=[g.end - g.start],
+                base=[g.start],
+                orientation='h',
+                name=g.label,
+                marker=dict(color=c, line=dict(color='#0F172A', width=1.5)),
+                showlegend=show_leg,
+                text=f"{g.label} [{g.start}–{g.end}]",
+                textposition="inside",
+                insidetextanchor="middle"
+            ))
+
+        fig.update_layout(
+            barmode='stack',
+            title=f"CPU Allocation Timeline (Context Switch Overhead δ = {cs_delta})",
+            xaxis=dict(title="Timeline (Time Units)", dtick=1, showgrid=True, zeroline=True),
+            yaxis=dict(title="Process / Event", autorange="reversed"),
+            height=320,
+            margin=dict(l=40, r=40, t=40, b=40)
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Process Control Block (PCB) Termination State")
